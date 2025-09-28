@@ -4,75 +4,104 @@
   <meta charset="UTF-8" />
   <title>$COOKIE - Totally Real Crypto</title>
   <style>
+    :root{
+      --cookie: #ffcc66;
+      --cookie-hover:#ffb84d;
+      --cookie-deep:#cc6600;
+      --ink:#333;
+      --bg:#fffaf0;
+      --line:#ddd;
+    }
+
+    * { box-sizing: border-box; }
     body {
       font-family: 'Courier New', monospace;
-      background-color: #fffaf0;
-      color: #333;
+      background-color: var(--bg);
+      color: var(--ink);
       text-align: center;
-      padding: 50px;
+      padding: 50px 20px;
     }
 
-    h1 {
-      font-size: 2.5rem;
-      margin-bottom: 10px;
-    }
+    h1 { font-size: 2.5rem; margin-bottom: 10px; }
+    .price { font-size: 2rem; margin-bottom: 20px; }
+    .wallet { font-size: 1.1rem; margin-bottom: 30px; }
 
-    .price {
-      font-size: 2rem;
-      margin-bottom: 20px;
-    }
-
-    .wallet {
-      font-size: 1.1rem;
-      margin-bottom: 30px;
-    }
-
+    /* --- Actions row --- */
     .actions {
-      display: grid;
-      gap: 10px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
       justify-content: center;
+      flex-wrap: wrap;
       margin-bottom: 10px;
     }
 
-    .row {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-      justify-content: center;
-    }
-
-    .actions button {
+    .btn {
       padding: 10px 18px;
       font-size: 1.05rem;
       border: none;
       border-radius: 10px;
-      background-color: #ffcc66;
+      background-color: var(--cookie);
       color: #000;
       cursor: pointer;
-      transition: 0.2s;
+      transition: transform .06s ease, background-color .15s ease, box-shadow .15s ease;
+      box-shadow: 0 1px 0 rgba(0,0,0,.05), 0 2px 10px rgba(0,0,0,.05);
+    }
+    .btn:hover { background-color: var(--cookie-hover); }
+    .btn:active { transform: translateY(1px); }
+    .btn[disabled]{
+      opacity: .55;
+      cursor: not-allowed;
+      filter: grayscale(.1);
+      box-shadow: none;
     }
 
-    .actions button:hover { background-color: #ffb84d; }
-
-    .qty {
+    /* --- Styled dropdown that looks like a button --- */
+    .select-wrap {
+      position: relative;
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      background: #fff;
-      border: 1px solid #ddd;
+      padding: 10px 16px;
       border-radius: 10px;
-      padding: 6px 10px;
+      background: var(--cookie);
+      box-shadow: 0 1px 0 rgba(0,0,0,.05), 0 2px 10px rgba(0,0,0,.05);
+      transition: background-color .15s ease;
+    }
+    .select-wrap:hover { background: var(--cookie-hover); }
+    .select-wrap:focus-within { outline: 2px solid #ff9900; outline-offset: 2px; }
+
+    .select-wrap label {
+      font-size: .95rem;
+      color: #000;
+      opacity: .8;
+      user-select: none;
     }
 
-    .qty label { font-size: 0.95rem; color: #555; }
-    .qty select {
+    .select-wrap select {
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
       border: none;
       background: transparent;
-      font-family: inherit;
-      font-size: 1rem;
-      outline: none;
+      font: inherit;
+      color: #000;
+      padding-right: 22px; /* room for arrow */
       cursor: pointer;
+      outline: none;
+    }
+
+    /* custom arrow */
+    .select-wrap::after{
+      content:"";
+      position:absolute;
+      right:12px;
+      width:12px; height:12px;
+      pointer-events:none;
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="%23000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>');
+      background-size: 12px 12px;
+      background-repeat:no-repeat;
+      opacity:.8;
     }
 
     #graph {
@@ -87,6 +116,8 @@
       border-collapse: collapse;
       margin-left: auto;
       margin-right: auto;
+      min-width: 420px;
+      max-width: 90vw;
     }
 
     th, td {
@@ -111,28 +142,21 @@
     🍪 You own: <span id="cookies">0</span> $COOKIEs
   </div>
 
+  <!-- Single selector + two buttons -->
   <div class="actions">
-    <!-- Quick 1x buttons -->
-    <div class="row">
-      <button onclick="buyCookie(1)">Buy 1×</button>
-      <button onclick="sellCookie(1)">Sell 1×</button>
+    <div class="select-wrap" role="group" aria-label="Quantity selector">
+      <label for="qtySelect">Qty</label>
+      <select id="qtySelect">
+        <option value="1">1×</option>
+        <option value="10">10×</option>
+        <option value="100">100×</option>
+        <option value="1000">1000×</option>
+        <option value="max">Max</option>
+      </select>
     </div>
 
-    <!-- Selector + action buttons -->
-    <div class="row">
-      <div class="qty">
-        <label for="qtySelect">Qty</label>
-        <select id="qtySelect">
-          <option value="1">1×</option>
-          <option value="10">10×</option>
-          <option value="100">100×</option>
-          <option value="1000">1000×</option>
-          <option value="max">Max</option>
-        </select>
-      </div>
-      <button onclick="buySelected()">Buy ×</button>
-      <button onclick="sellSelected()">Sell ×</button>
-    </div>
+    <button id="buyBtn" class="btn" onclick="buySelected()">Buy</button>
+    <button id="sellBtn" class="btn" onclick="sellSelected()">Sell</button>
   </div>
 
   <canvas id="graph" width="600" height="200"></canvas>
@@ -171,11 +195,14 @@
     const ctx = canvas.getContext("2d");
     const walletBody = document.getElementById("walletBody");
     const qtySelect = document.getElementById("qtySelect");
+    const buyBtn = document.getElementById("buyBtn");
+    const sellBtn = document.getElementById("sellBtn");
 
     function updateDisplay() {
       priceEl.textContent = `$${price.toFixed(2)}`;
       balanceEl.textContent = balance.toFixed(2);
       cookiesEl.textContent = cookies.toFixed(4);
+      updateActionState();
     }
 
     function fluctuatePrice() {
@@ -197,8 +224,8 @@
     }
 
     function buyCookie(amount = 1) {
-      const cost = price * amount;
       if (amount <= 0) return;
+      const cost = price * amount;
       if (balance >= cost) {
         balance -= cost;
         cookies += amount;
@@ -213,7 +240,6 @@
       if (cookies >= amount) {
         let toSell = amount;
         let i = 0;
-
         while (toSell > 0 && i < wallet.length) {
           const entry = wallet[i];
           if (entry.amount <= toSell) {
@@ -228,16 +254,12 @@
             i++;
           }
         }
-
         cookies -= amount;
         if (cookies < 0) cookies = 0;
-
         updateDisplay();
         renderWallet();
       }
     }
-
-    function sellAll() { sellCookie(cookies); }
 
     function drawGraph() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -279,12 +301,28 @@
       });
     }
 
-    // ---- New: selector-powered actions ----
+    // -------- Selector-powered actions ----------
     function getSelectedAmount() {
       const v = qtySelect.value;
       if (v === "max") return "max";
       const n = parseInt(v, 10);
       return Number.isFinite(n) ? n : 1;
+    }
+
+    function updateActionState(){
+      const sel = getSelectedAmount();
+      const maxAffordable = Math.floor(balance / price);
+
+      // Update button labels
+      buyBtn.textContent  = `Buy ${sel === "max" ? "Max" : sel + "×"}`;
+      sellBtn.textContent = `Sell ${sel === "max" ? "All" : sel + "×"}`;
+
+      // Enable/disable based on feasibility
+      const buyDisabled  = sel === "max" ? (maxAffordable === 0) : (balance < price * sel);
+      const sellDisabled = sel === "max" ? (cookies <= 0)        : (cookies < sel);
+
+      buyBtn.disabled  = buyDisabled;
+      sellBtn.disabled = sellDisabled;
     }
 
     function buySelected() {
@@ -300,13 +338,15 @@
     function sellSelected() {
       const sel = getSelectedAmount();
       if (sel === "max") {
-        sellAll();
+        sellCookie(cookies);
         return;
       }
-      const amt = Math.min(sel, cookies); // don't silently fail if over-selected
+      const amt = Math.min(sel, cookies);
       if (amt > 0) sellCookie(amt);
     }
-    // ---------------------------------------
+
+    qtySelect.addEventListener("change", updateActionState);
+    // -------------------------------------------
 
     setInterval(fluctuatePrice, 1500);
     updateDisplay();
