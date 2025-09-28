@@ -222,12 +222,12 @@
   const pos = (logP - logMin) / logRange;
 
   // Tunables (balanced for 10–1000 range)
-  const K         = 0.10;   // strength toward anchor (lower = looser)
+  const K         = 0.07;   // strength toward anchor (lower = looser)
   const SIGMA     = 0.035;  // base noise for price (percent-ish, calm)
   const EDGE_GAIN = 0.6;    // extra noise near edges to avoid sticking
 
   const ALPHA     = 0.015;  // how fast anchor follows price (EMA)
-  const SIGMA_A   = 0.007;  // tiny anchor wander (lets the center drift)
+  const SIGMA_A   = 0.01;  // tiny anchor wander (lets the center drift)
 
   // Two independent normals via Box–Muller
   const u1 = Math.random() || 1e-9, u2 = Math.random();
