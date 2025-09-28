@@ -206,14 +206,17 @@
     }
 
     function fluctuatePrice() {
-      // ±30 % swing every tick
-      const factor = 1 + (Math.random() - 0.5) * 0.6;   // 0.7 … 1.3
+      // If price < $30 ⇒ ±70% swings; otherwise ±30%
+      const vol = price < 30 ? 0.7 : 0.3;         // volatility as a fraction
+      const factor = 1 + (Math.random() - 0.5) * (vol * 2); // 0.3–1.7 when vol=0.7; 0.7–1.3 when vol=0.3
       price *= factor;
 
-      // keep it in the min-max tunnel
+      // Keep it inside the tunnel
       const pricemax = 200;
       const pricemin = 4;
-      if (price < pricemin) price = pricemin;
+
+      // Optional "bounce" so it doesn't glue to the floor when clamped
+      if (price < pricemin) price = pricemin * (1 + Math.random() * vol);
       if (price > pricemax) price = pricemax;
 
       // record + redraw
@@ -221,7 +224,8 @@
       if (priceHistory.length > 60) priceHistory.shift();
       updateDisplay();
       drawGraph();
-    }
+  }
+
 
     function buyCookie(amount = 1) {
       if (amount <= 0) return;
