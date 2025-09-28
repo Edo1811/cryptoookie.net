@@ -187,6 +187,9 @@
     let price = 100.00;
     let priceHistory = [price];
     let wallet = [];
+    const PRICE_MIN = 10;
+    const PRICE_MAX = 1000;
+
 
     const priceEl = document.getElementById("price");
     const balanceEl = document.getElementById("balance");
@@ -206,25 +209,42 @@
     }
 
     function fluctuatePrice() {
-      // If price < $30 ⇒ ±70% swings; otherwise ±30%
-      const vol = price < 30 ? 0.7 : 0.3;         // volatility as a fraction
-      const factor = 1 + (Math.random() - 0.5) * (vol * 2); // 0.3–1.7 when vol=0.7; 0.7–1.3 when vol=0.3
-      price *= factor;
+  // --- Mean-reverting log-price with gentle noise ---
+  // Log-space bounds & position (0 at min, 1 at max)
+  const logMin = Math.log(PRICE_MIN);
+  const logMax = Math.log(PRICE_MAX);
+  let   logP   = Math.log(price);
+  const pos    = (logP - logMin) / (logMax - logMin); // 0..1
 
-      // Keep it inside the tunnel
-      const pricemax = 200;
-      const pricemin = 4;
+  // Tunables: keep it calm but lively
+  const K      = 0.12;  // mean-reversion strength per tick (toward band center)
+  const SIGMA  = 0.055; // noise in log space (~±5–6% typical move)
 
-      // Optional "bounce" so it doesn't glue to the floor when clamped
-      if (price < pricemin) price = pricemin * (1 + Math.random() * vol);
-      if (price > pricemax) price = pricemax;
+  // Drift pulls toward the *center* of the band in log space
+  const drift  = K * (0.5 - pos);
 
-      // record + redraw
-      priceHistory.push(price);
-      if (priceHistory.length > 60) priceHistory.shift();
-      updateDisplay();
-      drawGraph();
-  }
+  // Gaussian-ish noise via Box–Muller so moves feel natural
+  const u1 = Math.random() || 1e-9;
+  const u2 = Math.random();
+  const z  = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2); // ~N(0,1)
+  const noise = z * SIGMA;
+
+  // Update log price
+  logP += drift + noise;
+
+  // Soft bounds (gentle reflect so it doesn't glue to the edges)
+  if (logP < logMin) logP = logMin + (logMin - logP) * 0.2;
+  if (logP > logMax) logP = logMax - (logP - logMax) * 0.2;
+
+  price = Math.exp(logP);
+
+  // record + redraw
+  priceHistory.push(price);
+  if (priceHistory.length > 60) priceHistory.shift();
+  updateDisplay();
+  drawGraph();
+}
+
 
 
     function buyCookie(amount = 1) {
