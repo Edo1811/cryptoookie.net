@@ -189,6 +189,8 @@
     let wallet = [];
     const PRICE_MIN = 10;
     const PRICE_MAX = 1000;
+    let logAnchor = Math.log(price); // the moving target the price reverts to
+
 
 
     const priceEl = document.getElementById("price");
@@ -209,32 +211,47 @@
     }
 
     function fluctuatePrice() {
-  // --- Mean-reverting log-price with gentle noise ---
-  // Log-space bounds & position (0 at min, 1 at max)
+  // --- Mean-reverting to a MOVING anchor in log space ---
   const logMin = Math.log(PRICE_MIN);
   const logMax = Math.log(PRICE_MAX);
-  let   logP   = Math.log(price);
-  const pos    = (logP - logMin) / (logMax - logMin); // 0..1
+  const logRange = logMax - logMin;
 
-  // Tunables: keep it calm but lively
-  const K      = 0.12;  // mean-reversion strength per tick (toward band center)
-  const SIGMA  = 0.055; // noise in log space (~±5–6% typical move)
+  let logP = Math.log(price);
 
-  // Drift pulls toward the *center* of the band in log space
-  const drift  = K * (0.5 - pos);
+  // Position 0..1 within the band (for edge-aware noise)
+  const pos = (logP - logMin) / logRange;
 
-  // Gaussian-ish noise via Box–Muller so moves feel natural
-  const u1 = Math.random() || 1e-9;
-  const u2 = Math.random();
-  const z  = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2); // ~N(0,1)
-  const noise = z * SIGMA;
+  // Tunables (balanced for 10–1000 range)
+  const K         = 0.10;   // strength toward anchor (lower = looser)
+  const SIGMA     = 0.035;  // base noise for price (percent-ish, calm)
+  const EDGE_GAIN = 0.6;    // extra noise near edges to avoid sticking
 
-  // Update log price
-  logP += drift + noise;
+  const ALPHA     = 0.015;  // how fast anchor follows price (EMA)
+  const SIGMA_A   = 0.007;  // tiny anchor wander (lets the center drift)
 
-  // Soft bounds (gentle reflect so it doesn't glue to the edges)
-  if (logP < logMin) logP = logMin + (logMin - logP) * 0.2;
-  if (logP > logMax) logP = logMax - (logP - logMax) * 0.2;
+  // Two independent normals via Box–Muller
+  const u1 = Math.random() || 1e-9, u2 = Math.random();
+  const z  = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2); // price noise
+
+  const u3 = Math.random() || 1e-9, u4 = Math.random();
+  const zA = Math.sqrt(-2 * Math.log(u3)) * Math.cos(2 * Math.PI * u4); // anchor noise
+
+  // Update the anchor (EMA of log-price + tiny random walk), with margins
+  const margin = 0.08 * logRange; // keep anchor off the hard edges
+  logAnchor = (1 - ALPHA) * logAnchor + ALPHA * logP + zA * SIGMA_A;
+  if (logAnchor < logMin + margin) logAnchor = logMin + margin;
+  if (logAnchor > logMax - margin) logAnchor = logMax - margin;
+
+  // Edge-aware volatility: slightly higher near edges, calmer in the middle
+  const edgeFactor = 1 + EDGE_GAIN * (Math.abs(pos - 0.5) / 0.5); // 1..(1+EDGE_GAIN)
+  const sigmaEff = SIGMA * edgeFactor;
+
+  // Mean reversion toward the MOVING anchor + gentle noise
+  logP += K * (logAnchor - logP) + z * sigmaEff;
+
+  // Soft reflection at band edges (prevents glueing)
+  if (logP < logMin) logP = logMin + (logMin - logP) * 0.25;
+  if (logP > logMax) logP = logMax - (logP - logMax) * 0.25;
 
   price = Math.exp(logP);
 
