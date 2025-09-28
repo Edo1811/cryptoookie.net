@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>$COOKIE - Totally Real Crypto</title>
+  <style>
+    body {
+      font-family: 'Courier New', monospace;
+      background-color: #fffaf0;
+      color: #333;
+      text-align: center;
+      padding: 50px;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+    }
+
+    .price {
+      font-size: 2rem;
+      margin-bottom: 20px;
+    }
+
+    .wallet {
+      font-size: 1.1rem;
+      margin-bottom: 30px;
+    }
+
+    .actions {
+      display: grid;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 10px;
+    }
+
+    .row {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .actions button {
+      padding: 10px 18px;
+      font-size: 1.05rem;
+      border: none;
+      border-radius: 10px;
+      background-color: #ffcc66;
+      color: #000;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .actions button:hover { background-color: #ffb84d; }
+
+    .qty {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      padding: 6px 10px;
+    }
+
+    .qty label { font-size: 0.95rem; color: #555; }
+    .qty select {
+      border: none;
+      background: transparent;
+      font-family: inherit;
+      font-size: 1rem;
+      outline: none;
+      cursor: pointer;
+    }
+
+    #graph {
+      margin-top: 40px;
+      border: 1px solid #ccc;
+      border-radius: 12px;
+      background-color: #fff;
+    }
+
+    table {
+      margin-top: 30px;
+      border-collapse: collapse;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    th, td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #ccc;
+    }
+
+    p.description {
+      max-width: 600px;
+      margin: 20px auto;
+      font-size: 0.95rem;
+      color: #444;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>$COOKIE Exchange</h1>
+  <div class="price">Current $COOKIE price: <span id="price">$100.00</span></div>
+  <div class="wallet">
+    💵 Balance: $<span id="balance">500.00</span><br>
+    🍪 You own: <span id="cookies">0</span> $COOKIEs
+  </div>
+
+  <div class="actions">
+    <!-- Quick 1x buttons -->
+    <div class="row">
+      <button onclick="buyCookie(1)">Buy 1×</button>
+      <button onclick="sellCookie(1)">Sell 1×</button>
+    </div>
+
+    <!-- Selector + action buttons -->
+    <div class="row">
+      <div class="qty">
+        <label for="qtySelect">Qty</label>
+        <select id="qtySelect">
+          <option value="1">1×</option>
+          <option value="10">10×</option>
+          <option value="100">100×</option>
+          <option value="1000">1000×</option>
+          <option value="max">Max</option>
+        </select>
+      </div>
+      <button onclick="buySelected()">Buy ×</button>
+      <button onclick="sellSelected()">Sell ×</button>
+    </div>
+  </div>
+
+  <canvas id="graph" width="600" height="200"></canvas>
+
+  <p class="description">
+    <strong>What is $COOKIE?</strong><br>
+    $COOKIE is a 100% fake cryptocurrency backed by ✨vibes✨, emotional damage, and the occasional burnt toaster strudel. Its value fluctuates based on quantum crumbs, moon phases, and how many ducks are swimming in a triangle formation. Do not invest with real money or brain cells.
+  </p>
+
+  <h2>🍪 Wallet History</h2>
+  <table id="walletTable">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Amount</th>
+        <th>Price per $COOKIE</th>
+        <th>Total Spent</th>
+      </tr>
+    </thead>
+    <tbody id="walletBody">
+      <!-- Purchases show up here -->
+    </tbody>
+  </table>
+
+  <script>
+    let balance = 500.00;
+    let cookies = 0;
+    let price = 100.00;
+    let priceHistory = [price];
+    let wallet = [];
+
+    const priceEl = document.getElementById("price");
+    const balanceEl = document.getElementById("balance");
+    const cookiesEl = document.getElementById("cookies");
+    const canvas = document.getElementById("graph");
+    const ctx = canvas.getContext("2d");
+    const walletBody = document.getElementById("walletBody");
+    const qtySelect = document.getElementById("qtySelect");
+
+    function updateDisplay() {
+      priceEl.textContent = `$${price.toFixed(2)}`;
+      balanceEl.textContent = balance.toFixed(2);
+      cookiesEl.textContent = cookies.toFixed(4);
+    }
+
+    function fluctuatePrice() {
+      // ±30 % swing every tick
+      const factor = 1 + (Math.random() - 0.5) * 0.6;   // 0.7 … 1.3
+      price *= factor;
+
+      // keep it in the min-max tunnel
+      const pricemax = 200;
+      const pricemin = 4;
+      if (price < pricemin) price = pricemin;
+      if (price > pricemax) price = pricemax;
+
+      // record + redraw
+      priceHistory.push(price);
+      if (priceHistory.length > 60) priceHistory.shift();
+      updateDisplay();
+      drawGraph();
+    }
+
+    function buyCookie(amount = 1) {
+      const cost = price * amount;
+      if (amount <= 0) return;
+      if (balance >= cost) {
+        balance -= cost;
+        cookies += amount;
+        wallet.push({ amount, priceAtPurchase: price, total: cost });
+        renderWallet();
+        updateDisplay();
+      }
+    }
+
+    function sellCookie(amount = 1) {
+      if (amount <= 0) return;
+      if (cookies >= amount) {
+        let toSell = amount;
+        let i = 0;
+
+        while (toSell > 0 && i < wallet.length) {
+          const entry = wallet[i];
+          if (entry.amount <= toSell) {
+            balance += entry.amount * price;
+            toSell -= entry.amount;
+            wallet.splice(i, 1);
+          } else {
+            balance += toSell * price;
+            entry.amount -= toSell;
+            entry.total = entry.amount * entry.priceAtPurchase;
+            toSell = 0;
+            i++;
+          }
+        }
+
+        cookies -= amount;
+        if (cookies < 0) cookies = 0;
+
+        updateDisplay();
+        renderWallet();
+      }
+    }
+
+    function sellAll() { sellCookie(cookies); }
+
+    function drawGraph() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const maxPrice = Math.max(...priceHistory);
+      const minPrice = Math.min(...priceHistory);
+      const range = (maxPrice - minPrice) || 1; // avoid divide-by-zero
+
+      ctx.beginPath();
+      for (let i = 0; i < priceHistory.length; i++) {
+        const x = (i / (priceHistory.length - 1)) * canvas.width;
+        const y = canvas.height - ((priceHistory[i] - minPrice) / range) * canvas.height;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = "#ff9900";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // last point
+      const lastX = canvas.width;
+      const lastY = canvas.height - ((price - minPrice) / range) * canvas.height;
+      ctx.fillStyle = "#cc6600";
+      ctx.beginPath();
+      ctx.arc(lastX - 2, lastY, 4, 0, 2 * Math.PI);
+      ctx.fill();
+    }
+
+    function renderWallet() {
+      walletBody.innerHTML = "";
+      wallet.forEach((entry, index) => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${index + 1}</td>
+          <td>${entry.amount}</td>
+          <td>$${entry.priceAtPurchase.toFixed(2)}</td>
+          <td>$${entry.total.toFixed(2)}</td>
+        `;
+        walletBody.appendChild(row);
+      });
+    }
+
+    // ---- New: selector-powered actions ----
+    function getSelectedAmount() {
+      const v = qtySelect.value;
+      if (v === "max") return "max";
+      const n = parseInt(v, 10);
+      return Number.isFinite(n) ? n : 1;
+    }
+
+    function buySelected() {
+      const sel = getSelectedAmount();
+      if (sel === "max") {
+        const maxAffordable = Math.floor(balance / price);
+        if (maxAffordable > 0) buyCookie(maxAffordable);
+        return;
+      }
+      buyCookie(sel);
+    }
+
+    function sellSelected() {
+      const sel = getSelectedAmount();
+      if (sel === "max") {
+        sellAll();
+        return;
+      }
+      const amt = Math.min(sel, cookies); // don't silently fail if over-selected
+      if (amt > 0) sellCookie(amt);
+    }
+    // ---------------------------------------
+
+    setInterval(fluctuatePrice, 1500);
+    updateDisplay();
+    drawGraph();
+  </script>
+
+</body>
+</html>
