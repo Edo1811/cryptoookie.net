@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>$COOKIE Debts</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <h1>💀 Outstanding Debts</h1>
+  <p>Your decayed cookies now cost you 10% of their current value per hour. Pay them off to regain the ability to sell those cookies.</p>
+
+  <div class="wallet">
+    💵 Current Balance: $<span id="balance">0.00</span>
+  </div>
+
+  <table id="debtsTable">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Cookie Type</th>
+        <th>Amount</th>
+        <th>Current Value</th>
+        <th>Hourly Cost (10%)</th>
+        <th>Total Debt</th>
+        <th>Status</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="debtsBody"></tbody>
+  </table>
+
+  <p style="margin-top:20px;">
+    <a href="index.html" class="btn">⬅ Back to Exchange</a>
+  </p>
+
+  <script>
+    // Load saved data
+    let debts = JSON.parse(localStorage.getItem("debts") || "[]");
+    let balance = parseFloat(localStorage.getItem("balance") || "500");
+    const balanceEl = document.getElementById("balance");
+    const debtsBody = document.getElementById("debtsBody");
+
+    function updateBalance() {
+      balanceEl.textContent = balance.toFixed(2);
+      localStorage.setItem("balance", balance.toFixed(2));
+    }
+
+    function renderDebts() {
+      debtsBody.innerHTML = "";
+      if (debts.length === 0) {
+        const row = document.createElement("tr");
+        row.innerHTML = `<td colspan="8">✅ You have no outstanding debts.</td>`;
+        debtsBody.appendChild(row);
+        return;
+      }
+
+      debts.forEach((debt, index) => {
+        const hourlyCost = debt.currentValue * 0.1;
+        const totalDebt = debt.accruedDebt || hourlyCost;
+
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${index + 1}</td>
+          <td>${debt.type}</td>
+          <td>${debt.amount}</td>
+          <td>$${debt.currentValue.toFixed(2)}</td>
+          <td>$${hourlyCost.toFixed(2)}</td>
+          <td>$${totalDebt.toFixed(2)}</td>
+          <td>${debt.paid ? "✅ Paid" : "💀 Ongoing"}</td>
+          <td>
+            <button class="btn" onclick="repayDebt(${index})" ${debt.paid ? "disabled" : ""}>Repay</button>
+          </td>
+        `;
+        debtsBody.appendChild(row);
+      });
+    }
+
+    function repayDebt(i) {
+      const d = debts[i];
+      const total = d.accruedDebt || d.currentValue * 0.1;
+      if (balance < total) {
+        alert("Not enough balance to repay this debt!");
+        return;
+      }
+      balance -= total;
+      d.paid = true;
+      d.accruedDebt = 0;
+      localStorage.setItem("debts", JSON.stringify(debts));
+      updateBalance();
+      renderDebts();
+      alert(`Debt #${i + 1} fully repaid.`);
+    }
+
+    // Auto accrue debt cost over time (10% per hour)
+    setInterval(() => {
+      debts.forEach(d => {
+        if (!d.paid) {
+          d.accruedDebt = (d.accruedDebt || 0) + d.currentValue * 0.1 / 60; // 10%/hour → 1/60 every minute
+        }
+      });
+      localStorage.setItem("debts", JSON.stringify(debts));
+      renderDebts();
+    }, 60000); // every minute
+
+    updateBalance();
+    renderDebts();
+  </script>
+
+</body>
+</html>
