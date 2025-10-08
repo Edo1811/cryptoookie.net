@@ -173,18 +173,26 @@ function tickDecay() {
     if (entry.decayed) return;
     entry.decayTime -= 1;
     if (entry.decayTime <= 0) {
-      entry.decayed = true;
-      entry.decayTime = 0;
-      // Add to debts
-      debts.push({
-        type: "$COOKIE",
-        amount: entry.amount,
-        currentValue: price,
-        accruedDebt: 0,
-        paid: false
-      });
-      localStorage.setItem("debts", JSON.stringify(debts));
-    }
+  entry.decayed = true;
+  entry.decayTime = 0;
+
+  // When cookie decays → move to debts and remove from wallet
+  debts.push({
+    type: "$COOKIE",
+    amount: entry.amount,
+    currentValue: price,
+    accruedDebt: 0,
+    sold: false
+  });
+
+  // Remove decayed cookie from wallet
+  cookies -= entry.amount;
+  wallet.splice(i, 1);
+
+  if (cookies < 0) cookies = 0;
+  localStorage.setItem("debts", JSON.stringify(debts));
+}
+
   });
   renderWallet();
 }
@@ -221,11 +229,7 @@ function sellCookie(amount = 1) {
     let totalDecayed = wallet
       .filter(w => w.decayed)
       .reduce((sum, w) => sum + w.amount, 0);
-    if (totalDecayed > 0) {
-      alert("⚠️ You have decayed cookies with outstanding debt. Repay them first!");
-      return;
-    }
-
+    
     let toSell = amount;
     let i = 0;
     while (toSell > 0 && i < wallet.length) {
