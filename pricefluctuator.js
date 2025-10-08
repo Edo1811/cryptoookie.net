@@ -140,19 +140,127 @@
       ctx.fill();
     }
 
-    function renderWallet() {
-      walletBody.innerHTML = "";
-      wallet.forEach((entry, index) => {
-        const row = document.createElement("tr");
-        row.innerHTML = `
-          <td>${index + 1}</td>
-          <td>${entry.amount}</td>
-          <td>$${entry.priceAtPurchase.toFixed(2)}</td>
-          <td>$${entry.total.toFixed(2)}</td>
-        `;
-        walletBody.appendChild(row);
+    // === Decay + Debts System ===
+
+// Decay time in seconds (for testing 60s = 1 min)
+const DECAY_DURATION = 60;
+
+// Load saved debts from localStorage
+let debts = JSON.parse(localStorage.getItem("debts") || "[]");
+
+// When buying a cookie, start decay timer
+function buyCookie(amount = 1) {
+  if (amount <= 0) return;
+  const cost = price * amount;
+  if (balance >= cost) {
+    balance -= cost;
+    cookies += amount;
+    wallet.push({
+      amount,
+      priceAtPurchase: price,
+      total: cost,
+      decayTime: DECAY_DURATION, // countdown in seconds
+      decayed: false
+    });
+    renderWallet();
+    updateDisplay();
+  }
+}
+
+// Countdown + decay detection
+function tickDecay() {
+  wallet.forEach((entry, i) => {
+    if (entry.decayed) return;
+    entry.decayTime -= 1;
+    if (entry.decayTime <= 0) {
+      entry.decayed = true;
+      entry.decayTime = 0;
+      // Add to debts
+      debts.push({
+        type: "$COOKIE",
+        amount: entry.amount,
+        currentValue: price,
+        accruedDebt: 0,
+        paid: false
       });
+      localStorage.setItem("debts", JSON.stringify(debts));
     }
+  });
+  renderWallet();
+}
+
+// Modified renderWallet with timer + decay status
+function renderWallet() {
+  walletBody.innerHTML = "";
+  wallet.forEach((entry, index) => {
+    const timeDisplay = entry.decayed
+      ? "💀 Decayed"
+      : `${Math.floor(entry.decayTime)}s`;
+    const status = entry.decayed ? "💀" : "⏳";
+
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${index + 1}</td>
+      <td>${entry.amount}</td>
+      <td>$${entry.priceAtPurchase.toFixed(2)}</td>
+      <td>$${entry.total.toFixed(2)}</td>
+      <td>${timeDisplay}</td>
+      <td>${status}</td>
+    `;
+    walletBody.appendChild(row);
+  });
+  localStorage.setItem("wallet", JSON.stringify(wallet));
+  localStorage.setItem("balance", balance.toFixed(2));
+}
+
+// Modified sellCookie to prevent selling if cookie is in debt
+function sellCookie(amount = 1) {
+  if (amount <= 0) return;
+  if (cookies >= amount) {
+    let totalOwned = wallet.reduce((sum, w) => sum + w.amount, 0);
+    let totalDecayed = wallet
+      .filter(w => w.decayed)
+      .reduce((sum, w) => sum + w.amount, 0);
+    if (totalDecayed > 0) {
+      alert("⚠️ You have decayed cookies with outstanding debt. Repay them first!");
+      return;
+    }
+
+    let toSell = amount;
+    let i = 0;
+    while (toSell > 0 && i < wallet.length) {
+      const entry = wallet[i];
+      if (entry.amount <= toSell) {
+        balance += entry.amount * price;
+        toSell -= entry.amount;
+        wallet.splice(i, 1);
+      } else {
+        balance += toSell * price;
+        entry.amount -= toSell;
+        entry.total = entry.amount * entry.priceAtPurchase;
+        toSell = 0;
+        i++;
+      }
+    }
+    cookies -= amount;
+    if (cookies < 0) cookies = 0;
+    updateDisplay();
+    renderWallet();
+  }
+}
+
+// Save + restore wallet on reload
+window.addEventListener("load", () => {
+  const savedWallet = JSON.parse(localStorage.getItem("wallet") || "[]");
+  if (savedWallet.length > 0) wallet = savedWallet;
+  balance = parseFloat(localStorage.getItem("balance") || balance);
+  renderWallet();
+  updateDisplay();
+});
+
+// Tick decay every second
+setInterval(tickDecay, 1000);
+
 
     // -------- Selector-powered actions ----------
     function getSelectedAmount() {
