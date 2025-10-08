@@ -8,7 +8,7 @@
 <body>
 
   <h1>💀 Outstanding Debts</h1>
-  <p>Your decayed cookies now cost you 10% of their current value per hour. Pay them off to regain the ability to sell those cookies.</p>
+  <p>Each decayed cookie costs 10% of its current value per hour. Repay to stop interest temporarily — or sell the cookie entirely once fully cleared.</p>
 
   <div class="wallet">
     💵 Current Balance: $<span id="balance">0.00</span>
@@ -21,10 +21,9 @@
         <th>Cookie Type</th>
         <th>Amount</th>
         <th>Current Value</th>
-        <th>Hourly Cost (10%)</th>
-        <th>Total Debt</th>
+        <th>Accrued Debt</th>
         <th>Status</th>
-        <th>Action</th>
+        <th colspan="2">Actions</th>
       </tr>
     </thead>
     <tbody id="debtsBody"></tbody>
@@ -35,75 +34,92 @@
   </p>
 
   <script>
-    // Load saved data
+    // --- Data loading ---
     let debts = JSON.parse(localStorage.getItem("debts") || "[]");
     let balance = parseFloat(localStorage.getItem("balance") || "500");
-    const balanceEl = document.getElementById("balance");
     const debtsBody = document.getElementById("debtsBody");
+    const balanceEl = document.getElementById("balance");
 
-    function updateBalance() {
-      balanceEl.textContent = balance.toFixed(2);
+    function saveAll() {
+      localStorage.setItem("debts", JSON.stringify(debts));
       localStorage.setItem("balance", balance.toFixed(2));
     }
 
+    function updateBalance() {
+      balanceEl.textContent = balance.toFixed(2);
+    }
+
+    // --- Render table ---
     function renderDebts() {
       debtsBody.innerHTML = "";
       if (debts.length === 0) {
         const row = document.createElement("tr");
-        row.innerHTML = `<td colspan="8">✅ You have no outstanding debts.</td>`;
+        row.innerHTML = `<td colspan="8">✅ No decayed cookies at the moment.</td>`;
         debtsBody.appendChild(row);
         return;
       }
 
-      debts.forEach((debt, index) => {
-        const hourlyCost = debt.currentValue * 0.1;
-        const totalDebt = debt.accruedDebt || hourlyCost;
-
+      debts.forEach((d, i) => {
+        const status = d.sold ? "✅ Sold" : (d.accruedDebt > 0 ? "💀 Owing" : "⏳ Idle");
         const row = document.createElement("tr");
         row.innerHTML = `
-          <td>${index + 1}</td>
-          <td>${debt.type}</td>
-          <td>${debt.amount}</td>
-          <td>$${debt.currentValue.toFixed(2)}</td>
-          <td>$${hourlyCost.toFixed(2)}</td>
-          <td>$${totalDebt.toFixed(2)}</td>
-          <td>${debt.paid ? "✅ Paid" : "💀 Ongoing"}</td>
+          <td>${i + 1}</td>
+          <td>${d.type}</td>
+          <td>${d.amount}</td>
+          <td>$${d.currentValue.toFixed(2)}</td>
+          <td>$${d.accruedDebt.toFixed(2)}</td>
+          <td>${status}</td>
           <td>
-            <button class="btn" onclick="repayDebt(${index})" ${debt.paid ? "disabled" : ""}>Repay</button>
+            <button class="btn" onclick="repayDebt(${i})" ${d.sold ? "disabled" : ""}>Repay</button>
+          </td>
+          <td>
+            <button class="btn" onclick="sellCookie(${i})" ${d.accruedDebt > 0 || d.sold ? "disabled" : ""}>Sell</button>
           </td>
         `;
         debtsBody.appendChild(row);
       });
+      updateBalance();
+      saveAll();
     }
 
+    // --- Repay: clears *current* debt only, but it grows again later ---
     function repayDebt(i) {
       const d = debts[i];
-      const total = d.accruedDebt || d.currentValue * 0.1;
-      if (balance < total) {
+      if (d.sold) return;
+      if (balance < d.accruedDebt) {
         alert("Not enough balance to repay this debt!");
         return;
       }
-      balance -= total;
-      d.paid = true;
+      balance -= d.accruedDebt;
       d.accruedDebt = 0;
-      localStorage.setItem("debts", JSON.stringify(debts));
-      updateBalance();
+      alert(`You repaid debt #${i + 1}. Interest will keep growing until you sell the cookie.`);
       renderDebts();
-      alert(`Debt #${i + 1} fully repaid.`);
     }
 
-    // Auto accrue debt cost over time (10% per hour)
+    // --- Sell cookie once debt fully cleared ---
+    function sellCookie(i) {
+      const d = debts[i];
+      if (d.accruedDebt > 0) {
+        alert("You must repay all debt before selling!");
+        return;
+      }
+      balance += d.currentValue * d.amount;
+      d.sold = true;
+      alert(`Sold ${d.amount}x ${d.type} for $${(d.currentValue * d.amount).toFixed(2)}.`);
+      renderDebts();
+    }
+
+    // --- Accrue debt: 10% per hour (1/360 every 10s for demo) ---
     setInterval(() => {
       debts.forEach(d => {
-        if (!d.paid) {
-          d.accruedDebt = (d.accruedDebt || 0) + d.currentValue * 0.1 / 60; // 10%/hour → 1/60 every minute
+        if (!d.sold) {
+          const increase = (d.currentValue * 0.1) / 360; // small increments
+          d.accruedDebt += increase;
         }
       });
-      localStorage.setItem("debts", JSON.stringify(debts));
       renderDebts();
-    }, 60000); // every minute
+    }, 10000); // every 10s = 1/360 hour
 
-    updateBalance();
     renderDebts();
   </script>
 
